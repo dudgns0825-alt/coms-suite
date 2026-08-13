@@ -36,8 +36,8 @@ APP_NAME = "COMS Suite"
 APP_SUBTITLE = "공시원문 다운로드 · 비교기업 재무분석 · DART · EDGAR"
 
 CORPCODE_FILE = "CORPCODE.xml"
-ICON_ICO = "icon.ico"
-ICON_PNG = "icon.png"
+ICON_ICO = "icon.ico"      # 윈도우 창·작업표시줄 아이콘
+ICON_PNG = "logo.png"      # 머리말 로고 겸, ico 를 못 쓰는 OS의 아이콘
 
 
 def base_directory():
@@ -252,7 +252,7 @@ class App(tk.Tk):
         head = ttk.Frame(self, style="Head.TFrame", padding=(20, 11))
         head.pack(fill="x")
 
-        png = find_asset(self.base_dir, "logo.png") or find_asset(self.base_dir, ICON_PNG)
+        png = find_asset(self.base_dir, ICON_PNG)
         if png:
             try:
                 self._logo = tk.PhotoImage(file=png).subsample(3, 3)

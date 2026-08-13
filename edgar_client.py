@@ -332,7 +332,7 @@ class CompanyNotReporting(Exception):
 
     10-K 를 제출하지 않는 법인일 수 있습니다(외국민간발행인의 20-F,
     소규모 신규상장사의 자료 미비 등). dart_client.CompanyNotReporting과
-    같은 뜻으로, 호출하는 쪽(peer_compare.py)에서 두 예외를 같은 방식으로
+    같은 뜻으로, 호출하는 쪽(analysis_tab.py)에서 두 예외를 같은 방식으로
     처리할 수 있게 이름과 쓰임을 맞췄다.
     """
 

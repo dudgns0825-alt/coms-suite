@@ -38,5 +38,10 @@ desktop.ini
 .vscode/
 .idea/
 
-# 개발용 화면 캡처 도구 (PIL 필요 — 프로그램 자체는 표준 라이브러리만 씀)
-_ui_screenshot.py
+# 개발용 도구 (PIL 필요 — 프로그램 자체는 표준 라이브러리만 씀)
+_dev/
+
+# 직접 찍은 화면 캡처 (실수로 올라가지 않게)
+*캡처*.png
+*캡쳐*.png
+screenshot*.png
