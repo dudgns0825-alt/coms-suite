@@ -434,8 +434,9 @@ class AnalysisTab(ttk.Frame):
 
             if not collected:
                 raise RuntimeError(
-                    "재무제표를 받은 회사가 없습니다.\n"
-                    "한국은 사업보고서 공시대상법인, 미국은 10-K 제출법인만 조회할 수 있습니다.")
+                    "재무제표를 받은 회사가 없습니다.\n\n"
+                    "한국은 사업보고서 또는 감사보고서를 공시하는 법인(비상장 외감법인 포함),\n"
+                    "미국은 10-K 제출법인을 조회할 수 있습니다.")
 
             if skipped and corps[0]["corp_name"] in skipped:
                 raise RuntimeError(f"대상회사({skipped[0]})의 재무제표를 받지 못했습니다.")

@@ -447,11 +447,74 @@ def collect_company(client, corp, years, fs_pref=FS_CONSOLIDATED, log=None, cach
             note = " (저장된 자료)" if from_cache else ""
             log(f"  · {year}년 {label} {len(rows)}개 계정{note}")
 
+    # 사업보고서를 내지 않는 비상장 외감법인은 API에 자료가 없다.
+    # 그런 회사도 감사보고서 단독공시는 있으므로 그 원문에서 읽어 온다.
+    missing = [year for year in years if year not in result["years"]]
+    if missing:
+        _collect_from_audit_reports(client, corp, missing, result,
+                                    fs_pref=fs_pref, log=log, cache_dir=cache_dir)
+
     if not result["years"]:
         raise CompanyNotReporting(
-            f"{corp['corp_name']}: 재무제표 API에 자료가 없습니다. "
-            "사업보고서 공시대상법인이 아닐 수 있습니다"
-            "(비상장 외감법인은 감사보고서 단독공시만 존재)."
+            f"{corp['corp_name']}: 재무제표를 찾지 못했습니다. "
+            "사업보고서도 감사보고서 단독공시도 없는 법인일 수 있습니다."
         )
 
     return result
+
+
+def _collect_from_audit_reports(client, corp, years, result,
+                                fs_pref=FS_CONSOLIDATED, log=None, cache_dir=None):
+    """
+    감사보고서 단독공시 원문에서 재무제표를 읽어 result 에 채운다.
+
+    읽어 낸 계정 행은 재무제표 API와 같은 모양이라, 이 뒤의 처리
+    (metrics·note_reader·report)는 상장사와 똑같은 길을 탄다.
+    자세한 것은 audit_report.py 참고.
+    """
+    import audit_report
+    import note_reader
+
+    try:
+        reports = audit_report.find_reports(client, corp["corp_code"], years, fs_pref)
+    except DartError as e:
+        if log:
+            log(f"  · 감사보고서 조회 실패: {e}")
+        return
+
+    if not reports:
+        return
+
+    if log:
+        log(f"  · 재무제표 API에 자료가 없어 감사보고서 원문에서 읽습니다 "
+            f"({len(reports)}개년)")
+
+    reader = note_reader.NoteReader(client, cache_dir=cache_dir)
+    for year in sorted(reports):
+        rcept_no, used = reports[year]
+        try:
+            statements = audit_report.read_statements(reader, rcept_no, year)
+        except Exception as e:
+            if log:
+                log(f"  · {year}년 감사보고서 원문을 읽지 못했습니다: {e}")
+            continue
+
+        # 재무상태표와 손익계산서가 모두 확인돼야 비교에 쓸 수 있다
+        if "BS" not in statements or "IS" not in statements:
+            if log:
+                log(f"  · {year}년 감사보고서에서 재무제표를 가려내지 못했습니다"
+                    f"(읽은 것: {', '.join(sorted(statements)) or '없음'})")
+            continue
+
+        rows = audit_report.to_rows(statements, year, rcept_no)
+        result["years"][year] = rows
+        result["fs_div_used"][year] = used
+
+        if cache_dir:
+            with open(_cache_path(cache_dir, corp["corp_code"], year, used),
+                      "w", encoding="utf-8") as f:
+                json.dump(rows, f, ensure_ascii=False)
+
+        if log:
+            label = "연결" if used == FS_CONSOLIDATED else "별도"
+            log(f"  · {year}년 {label} {len(rows)}개 계정 (감사보고서 원문)")

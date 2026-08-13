@@ -292,6 +292,23 @@ def _notes_html(series_list, years, generated, fs_pref, currency, market_note):
         "EBITDA·EBIT·당기순이익·자본총계가 0 이하인 회사·연도의 배수는 "
         "숫자로는 계산되지만 비교에 쓸 수 없어 표시하지 않았습니다(–).")
 
+    audit_sourced = [s["name"] for s in series_list if s.get("from_audit_report")]
+    if audit_sourced:
+        notes.append(
+            "<b>다음 회사의 재무제표는 감사보고서 단독공시 원문에서 읽었습니다</b>: "
+            + ", ".join(audit_sourced) + ". "
+            "<span class='src'>사업보고서를 제출하지 않는 비상장 외부감사대상 법인은 "
+            "재무제표 API에 자료가 없어, 공시원문의 재무제표 표를 직접 읽습니다. "
+            "자산총계=부채총계+자본총계 같은 항등식이 성립하는 열만 채택하므로 "
+            "표를 잘못 읽으면 값이 나오지 않고 비게 됩니다.</span>")
+
+    unlisted = [s["name"] for s in series_list if not s.get("listed")]
+    if unlisted:
+        notes.append(
+            "비상장회사(" + ", ".join(unlisted) + ")는 주가가 없어 "
+            "<b>시가총액·EV·EV/EBITDA·PER·PBR이 표시되지 않습니다</b>. "
+            "매출액·영업이익·EBITDA·부채비율 등 재무제표에서 나오는 지표는 그대로 비교됩니다.")
+
     # 값의 출처가 본문이 아닌 경우 어떤 회사·연도인지 밝힌다 (조서 추적성)
     def gather(flag):
         out = []

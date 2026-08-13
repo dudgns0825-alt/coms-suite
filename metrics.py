@@ -51,7 +51,8 @@ ITEM_SPECS = {
         "label": "당기순이익",
         "sj": ["IS", "CIS"],
         "ids": ["ifrs-full_ProfitLoss"],
-        "nm": r"^(당기순이익\(손실\)|당기순이익|당기순손실)$",
+        # '당기연결순이익'으로 적는 회사가 있다(우아한형제들 감사보고서)
+        "nm": r"^(당기|연결|당기연결)?(연결)?순이익(\(손실\))?$|^당기순손실$",
     },
     "net_income_owners": {
         "label": "지배주주순이익",
@@ -654,6 +655,10 @@ def build_series(collected, years, overrides=None, notes=None):
         "currency": collected.get("currency", "KRW"),
         # 우선주가 따로 상장된 회사는 보통주 시가총액만으로는 EV가 과소계상된다
         "has_preferred": bool(collected.get("preferred")),
+        # 사업보고서를 내지 않는 비상장 외감법인은 감사보고서 원문에서 읽어 온다
+        "from_audit_report": any(
+            raw and isinstance(raw, list) and raw[0].get("source_note")
+            for raw in collected["years"].values()),
         "industry": (profile.get("induty_code") or "").strip(),
         "ceo": (profile.get("ceo_nm") or "").strip(),
         "est_dt": (profile.get("est_dt") or "").strip(),

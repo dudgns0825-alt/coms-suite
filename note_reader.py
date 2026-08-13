@@ -302,10 +302,14 @@ class NoteReader:
     # ── 표를 글자로 읽기 ─────────────────────────────────
     def tables(self, rcept_no):
         """
-        원문의 모든 표를 [{"scale": 단위배수, "rows": [(줄이름, [숫자, ...]), ...]}]로.
+        원문의 모든 표를 다음 모양으로 돌려준다.
+          {"scale": 단위배수,
+           "rows":  [(줄이름, [숫자, ...]), ...],     숫자가 아닌 칸은 None
+           "texts": [[칸 글자, ...], ...]}            rows 와 같은 순서
 
         줄이름은 첫 칸, 숫자는 나머지 칸이며 숫자가 아닌 칸은 None으로 남겨
-        열 위치가 밀리지 않게 한다.
+        열 위치가 밀리지 않게 한다. texts 는 머리글에서 '당기/전기'나 사업연도를
+        읽어 어느 열인지 가릴 때 쓴다(audit_report.py).
         """
         if rcept_no in self._tables:
             return self._tables[rcept_no]
@@ -318,16 +322,19 @@ class NoteReader:
                          for m in UNIT_MARK.finditer(text)]
 
                 for table in TABLE_TAG.finditer(text):
-                    rows = []
+                    rows, texts = [], []
                     for row in ROW_TAG.finditer(table.group(1)):
                         cells = [self._plain(c) for c in CELL_TAG.findall(row.group(1))]
-                        if len(cells) < 2 or not cells[0]:
+                        if len(cells) < 2:
+                            continue
+                        texts.append(cells)
+                        if not cells[0]:
                             continue
                         rows.append((cells[0],
                                      [self._to_number(c) for c in cells[1:]]))
                     if rows:
                         tables.append({"scale": self._scale_at(marks, table.start()),
-                                       "rows": rows})
+                                       "rows": rows, "texts": texts})
 
         self._tables[rcept_no] = tables
         return tables
