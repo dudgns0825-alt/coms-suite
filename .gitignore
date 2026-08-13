@@ -30,6 +30,7 @@ venv/
 build/
 dist/
 *.spec
+COMS Suite.exe
 
 # ── OS / 편집기 ───────────────────────────────────────
 Thumbs.db

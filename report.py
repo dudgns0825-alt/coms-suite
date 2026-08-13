@@ -14,12 +14,28 @@ metrics.build_series() 결과를 받아 단일 HTML 파일을 만든다.
 """
 
 import os
+import sys
 import json
 import html
 import datetime
 
 
-TEMPLATE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "template.html")
+def _template_path():
+    """
+    리포트 서식 파일의 위치.
+
+    exe 로 묶으면 소스가 임시폴더(_MEIPASS)에 풀리므로 그쪽을 먼저 본다.
+    """
+    for folder in (getattr(sys, "_MEIPASS", None),
+                   os.path.dirname(os.path.abspath(__file__))):
+        if folder:
+            path = os.path.join(folder, "template.html")
+            if os.path.exists(path):
+                return path
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "template.html")
+
+
+TEMPLATE_PATH = _template_path()
 
 # 계열색 슬롯은 최대 8개. 그 이상은 색으로 구분되지 않으므로 받지 않는다.
 MAX_COMPANIES = 8

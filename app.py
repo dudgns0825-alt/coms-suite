@@ -33,6 +33,8 @@ from analysis_tab import AnalysisTab
 
 
 APP_NAME = "COMS Suite"
+# 작업 표시줄이 이 프로그램을 파이썬과 구분하는 이름
+APP_ID = "COMS.Suite.DartEdgar"
 APP_SUBTITLE = "공시원문 다운로드 · 비교기업 재무분석 · DART · EDGAR"
 
 CORPCODE_FILE = "CORPCODE.xml"
@@ -74,6 +76,19 @@ def set_dpi_aware():
             ctypes.windll.user32.SetProcessDPIAware()
         except Exception:
             pass
+
+
+def set_app_id():
+    """
+    작업 표시줄에서 이 프로그램을 파이썬과 따로 세도록 고유 이름을 준다.
+
+    이것을 주지 않으면 python.exe(또는 pythonw.exe)로 실행한 창이 모두 한 덩어리로
+    묶여 작업 표시줄 아이콘도 파이썬이 되고, 고정해도 파이썬이 고정된다.
+    """
+    try:
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_ID)
+    except Exception:
+        pass
 
 
 class Shared:
@@ -315,4 +330,5 @@ class App(tk.Tk):
 
 if __name__ == "__main__":
     set_dpi_aware()
+    set_app_id()
     App(base_directory()).mainloop()
