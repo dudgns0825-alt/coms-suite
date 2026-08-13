@@ -94,7 +94,10 @@ class AnalysisTab(ttk.Frame):
         # 왼쪽(회사)은 늘어나고 오른쪽(조건)은 내용이 들어갈 만큼 고정 폭을 지킨다
         body.columnconfigure(0, weight=1, minsize=420)
         body.columnconfigure(1, weight=0, minsize=360)
-        body.rowconfigure(2, weight=1)
+        # 위(입력)와 아래(진행 상황)가 남는 높이를 2:1로 나눠 갖는다.
+        # 위쪽에만 무게를 주지 않으면, 창이 낮을 때 로그창이 화면 밖으로 밀린다.
+        body.rowconfigure(0, weight=0)      # 입력 카드는 제 높이를 지키고
+        body.rowconfigure(2, weight=1)      # 남는 높이는 진행 상황이 갖는다
 
         # ── 회사 ──
         card, box = self._card(body)
@@ -110,7 +113,7 @@ class AnalysisTab(ttk.Frame):
 
         ttk.Label(box, text="비교기업 · 한 줄에 한 곳씩 (최대 7곳)",
                   style="Field.TLabel").pack(anchor="w")
-        self.peers = tk.Text(box, height=7, font=("Malgun Gothic", 10),
+        self.peers = tk.Text(box, height=5, font=("Malgun Gothic", 10),
                              relief="solid", bd=1, highlightthickness=0,
                              bg="#ffffff", fg=INK, insertbackground=INK, padx=6, pady=5)
         self.peers.pack(fill="both", expand=True, pady=(2, 0))
@@ -119,53 +122,64 @@ class AnalysisTab(ttk.Frame):
         card, box = self._card(body)
         card.grid(row=0, column=1, sticky="nsew", padx=(7, 0), pady=(0, 12))
         ttk.Label(box, text="조건", style="Section.TLabel").pack(anchor="w")
-        ttk.Label(box, text="사업연도는 공시연도가 아니라 결산 사업연도입니다",
-                  style="Hint.TLabel", wraplength=330).pack(anchor="w", pady=(1, 9))
+        ttk.Label(box, text="공시연도가 아니라 결산 사업연도 기준입니다",
+                  style="Hint.TLabel").pack(anchor="w", pady=(1, 9))
 
-        ttk.Label(box, text="사업연도", style="Field.TLabel").pack(anchor="w")
+        # 항목이름과 입력칸을 한 줄에 둔다. 줄마다 이름을 위에 얹으면
+        # 카드가 100px 넘게 길어져 아래 진행 상황이 밀려난다.
+        grid = ttk.Frame(box, style="Card.TFrame")
+        grid.pack(fill="x")
+        grid.columnconfigure(1, weight=1)
+
+        ttk.Label(grid, text="사업연도", style="Field.TLabel").grid(
+            row=0, column=0, sticky="w", pady=(0, 7))
         latest = default_latest_year()
         self.year_from = tk.StringVar(value=str(latest - 4))
         self.year_to = tk.StringVar(value=str(latest))
-        years = ttk.Frame(box, style="Card.TFrame")
-        years.pack(anchor="w", pady=(2, 10))
-        ttk.Spinbox(years, from_=2015, to=2100, width=7,
+        years = ttk.Frame(grid, style="Card.TFrame")
+        years.grid(row=0, column=1, sticky="w", padx=(10, 0), pady=(0, 7))
+        ttk.Spinbox(years, from_=2015, to=2100, width=6,
                     textvariable=self.year_from).pack(side="left")
         ttk.Label(years, text="  ~  ", style="Card.TLabel").pack(side="left")
-        ttk.Spinbox(years, from_=2015, to=2100, width=7,
+        ttk.Spinbox(years, from_=2015, to=2100, width=6,
                     textvariable=self.year_to).pack(side="left")
 
-        ttk.Label(box, text="재무제표", style="Field.TLabel").pack(anchor="w")
+        ttk.Label(grid, text="재무제표", style="Field.TLabel").grid(
+            row=1, column=0, sticky="w", pady=(0, 7))
         self.fs_var = tk.StringVar(value=dc.FS_CONSOLIDATED)
-        fs_box = ttk.Frame(box, style="Card.TFrame")
-        fs_box.pack(anchor="w", pady=(2, 10))
+        fs_box = ttk.Frame(grid, style="Card.TFrame")
+        fs_box.grid(row=1, column=1, sticky="w", padx=(10, 0), pady=(0, 7))
         ttk.Radiobutton(fs_box, text="연결 우선", value=dc.FS_CONSOLIDATED,
                         variable=self.fs_var).pack(side="left")
         ttk.Radiobutton(fs_box, text="별도", value=dc.FS_SEPARATE,
                         variable=self.fs_var).pack(side="left", padx=(12, 0))
 
-        ttk.Separator(box, orient="horizontal").pack(fill="x", pady=(2, 10))
+        ttk.Separator(grid, orient="horizontal").grid(
+            row=2, column=0, columnspan=2, sticky="ew", pady=(3, 9))
 
-        ttk.Label(box, text="시가총액 기준일", style="Field.TLabel").pack(anchor="w")
-        asof = ttk.Frame(box, style="Card.TFrame")
-        asof.pack(anchor="w", fill="x", pady=(2, 4))
+        ttk.Label(grid, text="기준일", style="Field.TLabel").grid(row=3, column=0, sticky="w")
+        asof = ttk.Frame(grid, style="Card.TFrame")
+        asof.grid(row=3, column=1, sticky="w", padx=(10, 0))
         self.asof_var = tk.StringVar(value=datetime.date.today().isoformat())
-        ttk.Entry(asof, textvariable=self.asof_var, width=13,
-                  font=("Malgun Gothic", 10)).pack(side="left", ipady=2)
-        for label, delta in (("오늘", 0), ("1개월전", 30), ("1년전", 365)):
-            ttk.Button(asof, text=label, style="Quiet.TButton", width=7,
-                       command=lambda d=delta: self._set_asof(d)).pack(side="left", padx=(5, 0))
+        ttk.Entry(asof, textvariable=self.asof_var, width=11,
+                  font=("Malgun Gothic", 10)).pack(side="left")
+        for label, delta in (("오늘", 0), ("1개월", 30), ("1년", 365)):
+            ttk.Button(asof, text=label, style="Quiet.TButton", width=5,
+                       command=lambda d=delta: self._set_asof(d)).pack(side="left", padx=(4, 0))
 
-        ttk.Label(box, text="적용 주가", style="Field.TLabel").pack(anchor="w", pady=(8, 0))
+        ttk.Label(grid, text="적용 주가", style="Field.TLabel").grid(
+            row=4, column=0, sticky="w", pady=(8, 0))
         self.avg_var = tk.StringVar(value=mkt.AVG_CHOICES[0][0])
-        ttk.Combobox(box, textvariable=self.avg_var, state="readonly", width=16,
-                     values=[label for label, _d in mkt.AVG_CHOICES]).pack(
-            anchor="w", pady=(2, 4))
+        ttk.Combobox(grid, textvariable=self.avg_var, state="readonly", width=15,
+                     values=[label for label, _d in mkt.AVG_CHOICES]).grid(
+            row=4, column=1, sticky="w", padx=(10, 0), pady=(8, 0))
+
         ttk.Label(box, text="기준일 하루 종가는 그날 변동에 휘둘립니다. 평균을 권합니다.",
-                  style="Hint.TLabel", wraplength=330).pack(anchor="w")
+                  style="Hint.TLabel", wraplength=330).pack(anchor="w", pady=(6, 0))
 
         self.cache_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(box, text="받은 자료 저장해 두고 다시 쓰기",
-                        variable=self.cache_var).pack(anchor="w", pady=(12, 0))
+                        variable=self.cache_var).pack(anchor="w", pady=(9, 0))
 
         # ── 실행 줄 ──
         card, box = self._card(body)
@@ -186,7 +200,7 @@ class AnalysisTab(ttk.Frame):
         card, box = self._card(body)
         card.grid(row=2, column=0, columnspan=2, sticky="nsew")
         ttk.Label(box, text="진행 상황", style="Section.TLabel").pack(anchor="w", pady=(0, 6))
-        wrap, self.log_text = ui_theme.log_widget(box, height=10)
+        wrap, self.log_text = ui_theme.log_widget(box, height=5)
         wrap.pack(fill="both", expand=True)
 
     def _set_asof(self, days_back):

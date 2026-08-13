@@ -204,8 +204,8 @@ class App(tk.Tk):
         self.shared = Shared(base_dir)
 
         self.title(APP_NAME)
-        self.geometry("1180x900")
-        self.minsize(1040, 760)
+        self.geometry("1180x940")
+        self.minsize(1040, 780)
         self._apply_icon()
 
         ui_theme.apply(self)
@@ -249,7 +249,7 @@ class App(tk.Tk):
 
     def _build_header(self):
         """진한 띠에 제목 — 두 탭 위에 공통으로 놓는다."""
-        head = ttk.Frame(self, style="Head.TFrame", padding=(20, 14))
+        head = ttk.Frame(self, style="Head.TFrame", padding=(20, 11))
         head.pack(fill="x")
 
         png = find_asset(self.base_dir, "logo.png") or find_asset(self.base_dir, ICON_PNG)
@@ -271,7 +271,7 @@ class App(tk.Tk):
         인증정보는 두 탭이 같은 것을 쓰므로 탭 밖(창 위)에 한 벌만 둔다.
         여기서 저장하면 두 탭이 곧바로 새 인증정보로 동작한다.
         """
-        outer, box = ui_theme.card(self, padding=(16, 11))
+        outer, box = ui_theme.card(self, padding=(16, 9))
         outer.pack(fill="x", padx=12, pady=(12, 6))
 
         line = ttk.Frame(box, style="Card.TFrame")
@@ -291,10 +291,9 @@ class App(tk.Tk):
                    command=self._save_credentials).pack(side="left")
 
         ttk.Label(box,
-                  text="DART 인증키는 40자리입니다(opendart.fss.or.kr, 무료). "
-                       "EDGAR는 인증키 없이 '이름 이메일'만 넣으면 됩니다 "
-                       "— 예) Hong Gildong hong@example.com",
-                  style="Hint.TLabel").pack(anchor="w", pady=(7, 0))
+                  text="DART 인증키는 40자리입니다(opendart.fss.or.kr, 무료).  ·  "
+                       "EDGAR는 인증키 없이 '이름 이메일'만 넣으면 됩니다.",
+                  style="Hint.TLabel", wraplength=1000).pack(anchor="w", pady=(7, 0))
 
     def _save_credentials(self):
         key = self.key_var.get().strip()

@@ -54,12 +54,31 @@ class DownloadTab(ttk.Frame):
     def _build(self):
         # 세로로만 쌓으면 창 높이가 1000px을 넘어 로그가 화면 밖으로 밀린다.
         # 왼쪽은 설정(폭 고정), 오른쪽은 진행 로그로 나눈다.
-        left = ttk.Frame(self, style="Plane.TFrame", width=560)
+        left = ttk.Frame(self, style="Plane.TFrame", width=620)
         left.pack(side="left", fill="y")
         left.pack_propagate(False)
 
         right = ttk.Frame(self, style="Plane.TFrame")
         right.pack(side="left", fill="both", expand=True, padx=(12, 0))
+
+        # ★ 실행 줄과 상태를 먼저 아래쪽에 붙여 둔다.
+        #   카드부터 쌓으면 글꼴이 큰 PC에서 카드가 길어져 [다운로드 시작]이
+        #   화면 밖으로 밀려난다. 아래를 먼저 잡아 두면 그럴 일이 없다.
+        self.status_var = tk.StringVar(value="기업목록을 읽는 중입니다…")
+        ttk.Label(left, textvariable=self.status_var, style="Plane.TLabel").pack(
+            side="bottom", anchor="w", pady=(6, 0))
+
+        run = ttk.Frame(left, style="Plane.TFrame")
+        run.pack(side="bottom", fill="x", pady=(4, 0))
+        self.start_btn = ttk.Button(run, text="다운로드 시작", style="Run.TButton",
+                                    command=self._start)
+        self.start_btn.pack(side="left")
+        self.stop_btn = ttk.Button(run, text="중지", style="Quiet.TButton",
+                                   command=self._stop, state="disabled")
+        self.stop_btn.pack(side="left", padx=10)
+        self.progress = ttk.Progressbar(run, mode="determinate",
+                                        style="Thin.Horizontal.TProgressbar")
+        self.progress.pack(side="left", fill="x", expand=True, padx=(14, 0))
 
         # 회사
         corp = ui_theme.titled_card(left, "회사", "한글은 DART, 영문·티커는 EDGAR")
@@ -74,7 +93,7 @@ class DownloadTab(ttk.Frame):
         self.corp_text.insert("1.0", "삼성전자, Apple")
         ttk.Label(corp,
                   text="여러 개면 줄바꿈 또는 쉼표로 구분  ·  비상장 미국 법인은 CIK 직접 입력",
-                  style="Hint.TLabel", wraplength=490, justify="left").pack(
+                  style="Hint.TLabel", wraplength=560, justify="left").pack(
             anchor="w", pady=(8, 0))
 
         # 조건
@@ -101,7 +120,7 @@ class DownloadTab(ttk.Frame):
                 side="left", padx=(0, 12))
         ttk.Label(opt,
                   text="감사보고서 = 비상장 단독공시 포함  ·  미국은 10-K / 20-F / 10-Q",
-                  style="Hint.TLabel", wraplength=490, justify="left").pack(
+                  style="Hint.TLabel", wraplength=560, justify="left").pack(
             anchor="w", pady=(8, 0))
 
         after = ttk.Frame(opt, style="Card.TFrame")
@@ -120,22 +139,6 @@ class DownloadTab(ttk.Frame):
         ttk.Entry(out, textvariable=self.out_var).pack(side="left", fill="x", expand=True)
         ttk.Button(out, text="찾아보기", style="Quiet.TButton",
                    command=self._choose_dir).pack(side="left", padx=(10, 0))
-
-        # 실행 줄
-        run = ttk.Frame(left, style="Plane.TFrame")
-        run.pack(fill="x", pady=(2, 10))
-        self.start_btn = ttk.Button(run, text="다운로드 시작", style="Run.TButton",
-                                    command=self._start)
-        self.start_btn.pack(side="left")
-        self.stop_btn = ttk.Button(run, text="중지", style="Quiet.TButton",
-                                   command=self._stop, state="disabled")
-        self.stop_btn.pack(side="left", padx=10)
-        self.progress = ttk.Progressbar(run, mode="determinate",
-                                        style="Thin.Horizontal.TProgressbar")
-        self.progress.pack(side="left", fill="x", expand=True, padx=(14, 0))
-
-        self.status_var = tk.StringVar(value="기업목록을 읽는 중입니다…")
-        ttk.Label(left, textvariable=self.status_var, style="Plane.TLabel").pack(anchor="w")
 
         # 진행 상황
         log_card = ui_theme.titled_card(right, "진행 상황", expand=True, pady=(0, 0))
