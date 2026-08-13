@@ -37,3 +37,6 @@ desktop.ini
 .DS_Store
 .vscode/
 .idea/
+
+# 개발용 화면 캡처 도구 (PIL 필요 — 프로그램 자체는 표준 라이브러리만 씀)
+_ui_screenshot.py
