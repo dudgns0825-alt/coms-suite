@@ -672,6 +672,24 @@ def verify(found):
     return rows
 
 
+# 금액 표시 서식 — 천 단위 구분기호를 넣고 음수는 원문처럼 괄호로 적는다.
+# 소수는 나올 때만 보이게 한다(재무제표 본문은 대개 정수지만 주당이익·비율이 섞인다).
+MONEY_FORMAT = "#,##0;(#,##0)"
+DECIMAL_FORMAT = "#,##0.##;(#,##0.##)"
+
+
+def _put(sheet, row, column, value):
+    """칸 하나를 쓰면서 숫자면 천 단위 구분기호 서식을 입힌다."""
+    cell = sheet.cell(row=row, column=column, value=value)
+    if isinstance(value, bool):
+        return cell
+    if isinstance(value, int):
+        cell.number_format = MONEY_FORMAT
+    elif isinstance(value, float):
+        cell.number_format = (MONEY_FORMAT if value.is_integer() else DECIMAL_FORMAT)
+    return cell
+
+
 VERIFY_HEAD = ["재무제표", "기수·열", "검증항목", "산식", "계산값", "표시값", "차이", "판정"]
 
 
@@ -713,7 +731,7 @@ def _write_verification(book, rows, meta, head_font, head_fill, label_font):
     bad_font = Font(bold=True, color="C0392B")
     for record in rows:
         for column, value in enumerate(record, start=1):
-            cell = sheet.cell(row=line, column=column, value=value)
+            cell = _put(sheet, line, column, value)
             if record[7] == "차이":
                 cell.font = bad_font
         line += 1
@@ -771,8 +789,8 @@ def write(found, path, meta=None):
             for line in item["grid"]:
                 for col, text in enumerate(line, start=1):
                     # 첫 칸(계정명)은 '1,234'처럼 보여도 글자 그대로 둔다
-                    sheet.cell(row=row, column=col,
-                               value=text if col == 1 else _cell_value(text))
+                    value = text if col == 1 else _cell_value(text)
+                    _put(sheet, row, col, value)
                 row += 1
 
             # 표의 머리글 줄에 색을 넣는다 — 금액이 아직 안 나온 위쪽 줄이 머리글이다
