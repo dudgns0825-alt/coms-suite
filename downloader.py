@@ -24,6 +24,7 @@ import threading
 
 import dart_client
 import dart_viewer     # 공시원문 XML -> 읽을 수 있는 HTML 변환
+import fs_excel        # 공시원문 -> 재무제표 4종 엑셀
 import edgar_client    # 미국 SEC(EDGAR)
 
 PBLNTF_JEONGGI = dart_client.PBLNTF_JEONGGI
@@ -130,13 +131,15 @@ def extract_fiscal_year(report_nm, rcept_dt):
 class Downloader:
     """선택된 회사/연도/보고서종류를 순회하며 실제로 내려받는다."""
 
-    def __init__(self, client, out_dir, log, unzip=True, make_html=True, edgar=None):
+    def __init__(self, client, out_dir, log, unzip=True, make_html=True,
+                 make_excel=True, edgar=None):
         self.client = client
         self.edgar = edgar          # EdgarClient. 미국 회사가 없으면 None이어도 된다.
         self.out_dir = out_dir
         self.log = log
         self.unzip = unzip
         self.make_html = make_html
+        self.make_excel = make_excel
         self.stop_flag = threading.Event()
         self.stats = {"ok": 0, "skip": 0, "fail": 0}
         self._warned = set()        # EDGAR에 없는 서식 안내를 회사마다 반복하지 않기 위함
@@ -254,13 +257,46 @@ class Downloader:
             except Exception as e:
                 self.log(f"      ! {rcept_no} HTML 변환 실패: {e}")
 
+        self.log(f"      + {fiscal_year} {item['report_nm']}")
+
+        # 재무제표 4종(재무상태표·손익계산서·자본변동표·현금흐름표)을 표 그대로
+        # 엑셀로 뽑아 둔다. 조서에 옮길 때 원문 표를 다시 긁을 필요가 없다.
+        if self.make_excel:
+            self._write_excel(blob, folder, stem, corp_name, fiscal_year, item)
+
         # 정상 완료된 뒤에만 표식을 남긴다.
         # 다운로드 도중 죽으면 표식이 없으므로 다음 실행 때 다시 받는다.
         with open(done_marker, "w", encoding="utf-8") as f:
             f.write(f"{item['report_nm']}\t{item['rcept_dt']}\n")
 
-        self.log(f"      + {fiscal_year} {item['report_nm']}")
         self.stats["ok"] += 1
+
+    def _write_excel(self, blob, folder, stem, corp_name, fiscal_year, item):
+        """공시원문에서 재무제표를 찾아 '<파일이름>_재무제표.xlsx' 로 저장한다."""
+        try:
+            found = fs_excel.extract(blob)
+            if not found:
+                self.log("        · 재무제표를 찾지 못했습니다 "
+                         "(재무제표가 실리지 않는 보고서일 수 있습니다)")
+                return
+
+            path = os.path.join(folder, stem + "_재무제표.xlsx")
+            fs_excel.write(found, path, meta={
+                "회사": corp_name,
+                "보고서": item["report_nm"],
+                "사업연도": fiscal_year,
+                "접수번호": item["rcept_no"],
+                "출처": "DART 공시원문",
+            })
+            self.log(f"        · 재무제표 엑셀: {fs_excel.summary(found)}")
+        except ImportError:
+            # 엑셀 쓰기에만 필요한 라이브러리다. 없다고 다운로드를 멈출 이유는 없다.
+            if "openpyxl" not in self._warned:
+                self._warned.add("openpyxl")
+                self.log("        ! 재무제표 엑셀을 건너뜁니다 — "
+                         "'pip install openpyxl' 을 하면 만들어집니다")
+        except Exception as e:
+            self.log(f"        ! 재무제표 엑셀 실패: {e}")
 
     # ── EDGAR(미국) ────────────────────────────────────────
     def _process_edgar(self, corp, spec, year_from, year_to):
@@ -361,4 +397,12 @@ class Downloader:
             f.write(f"{row['form']}\t{row['filing_date']}\t{row['report_date']}\n")
 
         self.log(f"      + {fiscal_year} {row['form']} ({row['filing_date']} 접수)")
+
+        # 재무제표 엑셀은 한국 공시만 만든다. 10-K는 영문 서식이라 재무제표 이름과
+        # 구성이 달라 같은 방식으로 뽑을 수 없다.
+        if self.make_excel and "edgar_excel" not in self._warned:
+            self._warned.add("edgar_excel")
+            self.log("        · 재무제표 엑셀은 DART 공시만 지원합니다 "
+                     "(10-K는 영문 서식이라 제외)")
+
         self.stats["ok"] += 1

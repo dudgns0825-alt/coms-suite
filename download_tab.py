@@ -130,7 +130,16 @@ class DownloadTab(ttk.Frame):
             side="left", padx=(0, 18))
         self.html_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(after, text="읽을 수 있는 HTML로 변환", variable=self.html_var).pack(
+            side="left", padx=(0, 18))
+        # 세 개를 한 줄에 둔다 — 줄을 늘리면 아래의 [다운로드 시작]이 밀려난다
+        self.excel_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(after, text="재무제표 엑셀", variable=self.excel_var).pack(
             side="left")
+        ttk.Label(opt,
+                  text="재무제표 엑셀 = 재무상태표·손익계산서·자본변동표·현금흐름표를 "
+                       "원문 표 그대로 시트별로 (DART 공시만)",
+                  style="Hint.TLabel", wraplength=560, justify="left").pack(
+            anchor="w", pady=(8, 0))
 
         # 저장 위치
         out = ui_theme.titled_card(left, "저장 위치")
@@ -254,6 +263,7 @@ class DownloadTab(ttk.Frame):
             self.shared.dart() if has_dart else None,
             self.out_var.get(), self.log,
             unzip=self.unzip_var.get(), make_html=self.html_var.get(),
+            make_excel=self.excel_var.get(),
             edgar=self.shared.edgar() if has_edgar else None,
         )
 
