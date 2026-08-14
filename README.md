@@ -42,6 +42,14 @@ NVDA
 
 ## 설치와 실행
 
+### 실행파일로 받기 (파이썬 없이)
+
+[**최신 릴리스에서 `COMS-Suite.exe` 내려받기**](https://github.com/dudgns0825-alt/coms-suite/releases/latest)
+— Windows 64비트. 받아서 바로 실행하면 됩니다. 인증키는 창 위쪽에 넣고 [저장]을 누르면
+실행파일 옆에 `config.txt` 로 저장됩니다.
+
+### 소스로 실행하기
+
 ```bash
 git clone https://github.com/dudgns0825-alt/coms-suite.git
 cd coms-suite
