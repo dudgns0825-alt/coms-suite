@@ -372,6 +372,13 @@ ITEM_SPECS = {
         "CashAndCashEquivalentsAtCarryingValue",
         "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
     ], False),
+    # 단기금융상품 — 한국의 '단기금융상품'에 해당하는 단기투자자산.
+    # 순차입금에서 현금과 함께 차감한다(DART 쪽과 정의를 맞춘 것이다).
+    "st_investments": ([
+        "ShortTermInvestments",
+        "MarketableSecuritiesCurrent",
+        "AvailableForSaleSecuritiesDebtSecuritiesCurrent",
+    ], False),
     "short_debt": ([
         "ShortTermBorrowings",
         "CommercialPaper",

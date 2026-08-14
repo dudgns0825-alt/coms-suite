@@ -82,8 +82,9 @@ TABLE_ROWS = [
     ("assets", "자산총계", "amount"),
     ("liabilities", "부채총계", "amount"),
     ("equity", "자본총계", "amount"),
-    ("total_debt", "총차입금(리스부채 포함)", "amount"),
+    ("total_debt", "이자부부채(차입금·사채·리스부채)", "amount"),
     ("cash", "현금및현금성자산", "amount"),
+    ("st_investments", "단기금융상품", "amount"),
     ("net_debt", "순차입금", "amount"),
     ("opm", "영업이익률", "ratio"),
     ("npm", "순이익률", "ratio"),
@@ -266,6 +267,90 @@ def _table_html(series_list, years, currency):
     return "".join(out)
 
 
+# 산정내역 표의 분류 — (items 키, 분류 이름, 순차입금에서의 부호)
+DEBT_GROUPS = [
+    ("total_debt", "이자부부채", +1),
+    ("cash", "현금및현금성자산", -1),
+    ("st_investments", "단기금융상품", -1),
+]
+
+
+def _detail_html(series_list, years, currency):
+    """
+    순차입금을 어느 계정으로 만들었는지 보이는 표 (계정과목별).
+
+    배수를 조서에 옮길 때 가장 먼저 확인하는 것이 '이 회사의 이자부부채에
+    무엇이 들어갔는가'다. 계정 표시가 회사마다 달라 총액만 보면 비교가
+    맞는지 알 수 없으므로, 분류(이자부부채·현금및현금성자산·단기금융상품)별로
+    계정과목을 그대로 펼쳐 놓고 합계·순차입금까지 이어 붙인다.
+    """
+    unit_div = _units(currency)["table"][0]
+    head = "".join(f"<th>{y}</th>" for y in years)
+    out = [f"<table><thead><tr><th>계정과목</th>{head}</tr></thead><tbody>"]
+
+    def money(value):
+        if value is None:
+            return '<td class="na">–</td>'
+        cls = ' class="neg"' if value < 0 else ""
+        return f"<td{cls}>{value / unit_div:,.0f}</td>"
+
+    for s in series_list:
+        factor = s.get("fx_factor", 1.0)
+        tag = f" ({s['stock_code']})" if s["stock_code"] else ""
+        out.append(
+            f'<tr class="co-head"><td colspan="{len(years) + 1}">'
+            f'<span class="cdot" style="background:var(--series-{s["slot"]})"></span>'
+            f'{html.escape(s["name"])}{tag}</td></tr>'
+        )
+
+        for key, group_label, sign in DEBT_GROUPS:
+            # 계정과목은 연도마다 이름이 바뀔 수 있어, 나온 순서대로 모아 행을 만든다
+            names, per_year = [], {}
+            for y in years:
+                row = s["rows"].get(y)
+                lines = ((row or {}).get("items", {}).get("_detail") or {}).get(key) or []
+                for line in lines:
+                    name = line["name"]
+                    if name not in per_year:
+                        names.append(name)
+                        per_year[name] = {}
+                    # 같은 이름이 유동·비유동으로 두 번 나오면 더한다
+                    per_year[name][y] = per_year[name].get(y, 0.0) + line["amount"]
+
+            total_cells = [_value(s["rows"].get(y), key, factor) for y in years]
+            if not names and all(v is None for v in total_cells):
+                continue
+
+            out.append(f'<tr class="grp"><td colspan="{len(years) + 1}">'
+                       f'{html.escape(group_label)}</td></tr>')
+
+            for name in names:
+                cells = "".join(
+                    money(None if y not in per_year[name]
+                          else per_year[name][y] * factor) for y in years)
+                out.append(f'<tr><td class="acct">{html.escape(name)}</td>{cells}</tr>')
+
+            # 본문·주석에서 계정을 못 잡아 직접 입력으로 채운 칸을 밝힌다
+            marks = []
+            for y in years:
+                origin = _origin(s["rows"].get(y), key)
+                if origin:
+                    marks.append(f'{y} {"직접 입력" if origin == "manual" else "주석"}')
+            note = (f'<span class="origin">{" · ".join(marks)}</span>') if marks else ""
+
+            cells = "".join(money(v) for v in total_cells)
+            out.append(f'<tr class="sub"><td>{html.escape(group_label)} 합계{note}</td>'
+                       f'{cells}</tr>')
+
+        cells = "".join(money(_value(s["rows"].get(y), "net_debt", factor)) for y in years)
+        out.append(f'<tr class="sub net"><td>순차입금 '
+                   f'<span class="origin">이자부부채 − 현금및현금성자산 − 단기금융상품'
+                   f'</span></td>{cells}</tr>')
+
+    out.append("</tbody></table>")
+    return "".join(out)
+
+
 def _notes_html(series_list, years, generated, fs_pref, currency, market_note):
     """출처·작성기준 각주. 수치를 조서에 옮길 때 근거가 되는 부분이다."""
     has_edgar = any(s.get("source") == "edgar" for s in series_list)
@@ -300,9 +385,27 @@ def _notes_html(series_list, years, generated, fs_pref, currency, market_note):
 
     notes.append(
         "EBITDA = 영업이익 + 감가상각비·무형자산상각비. "
-        "EV = 시가총액 + 순차입금이며, 순차입금 = 총차입금(리스부채 포함) − 현금및현금성자산입니다. "
-        "<span class='src'>순차입금에서 단기금융상품은 차감하지 않았습니다 — "
-        "회사마다 유동성 분류가 달라 한 가지 기준(현금및현금성자산)으로 통일했습니다.</span>")
+        "EV = 시가총액 + 순차입금이며, "
+        "<b>순차입금 = 이자부부채 − 현금및현금성자산 − 단기금융상품</b>입니다. "
+        "<span class='src'>어느 계정이 어느 분류로 들어갔는지는 "
+        "「이자부부채·현금성자산 산정내역」 표에서 계정과목 단위로 확인하실 수 있습니다.</span>")
+
+    notes.append(
+        "이자부부채 판정기준: 계정명에 <b>차입·사채·리스부채·유동성장기부채·장기부채·"
+        "유동화채무</b>가 들어간 재무상태표 계정을 더하고, "
+        "<b>채권·대여·자산·미지급·보증금·할인발행차금·상환할증금·파생</b>이 들어간 계정은 "
+        "제외했습니다. <span class='src'>표준계정코드로도 함께 대조하므로 계정명을 다르게 "
+        "표시한 회사(차입부채·유동성차입금·판매후리스부채·유동화채무 등)도 잡힙니다. "
+        "다만 회생채무처럼 '기타금융부채'로 묶여 표시되면서 실질이 이자부인 계정은 "
+        "주석을 봐야 알 수 있어 자동으로 잡히지 않습니다 — 직접 입력으로 보완하십시오.</span>")
+
+    notes.append(
+        "단기금융상품은 <b>현금성자산으로 분류되지 않는 단기예치금</b> 표준계정"
+        "(<span class='src'>ifrs-full_ShorttermDepositsNotClassifiedAsCashEquivalents</span>)"
+        "만 집계했습니다. <span class='src'>회사가 '단기금융상품·단기금융자산·"
+        "기타유동단기금융상품·단기기타금융자산' 중 무엇으로 표시하든 같은 계정입니다. "
+        "미수금·보증금이 섞인 '기타유동금융자산', 1년 내 현금화가 아닌 '장기금융상품'은 "
+        "차감하지 않았습니다.</span>")
 
     notes.append(
         "EBITDA·EBIT·당기순이익·자본총계가 0 이하인 회사·연도의 배수는 "
@@ -359,7 +462,7 @@ def _notes_html(series_list, years, generated, fs_pref, currency, market_note):
             if items.get("dep_amort") is None:
                 gaps.append(f"{y} 감가상각비")
             if items.get("total_debt") is None:
-                gaps.append(f"{y} 차입금")
+                gaps.append(f"{y} 이자부부채")
         if gaps:
             missing.append(f"{s['name']}({', '.join(gaps)})")
     if missing:
@@ -525,6 +628,7 @@ def build_report(series_list, years, target_name, fs_pref="CFS", out_path=None):
         },
         "kpi_html": _kpi_html(target, years, base_currency, target["fx_factor"]),
         "table_html": _table_html(series_list, years, base_currency),
+        "detail_html": _detail_html(series_list, years, base_currency),
         "notes_html": _notes_html(series_list, years, generated, fs_pref,
                                   base_currency, market_note),
     }

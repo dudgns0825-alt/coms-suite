@@ -127,6 +127,41 @@ ITEM_SPECS = {
 #   거기서도 못 구하면 사용자가 직접 넣을 수 있게 build_series(overrides=...) 로
 #   값을 덮어쓸 수 있게 했다.
 
+# ─────────────────────────────────────────────────────────────
+# 재무상태표 계정 분류 — 이자부부채 · 현금및현금성자산 · 단기금융상품
+# ─────────────────────────────────────────────────────────────
+# valuation(순차입금·EV)에 쓰려면 '무엇을 이자부부채로 보았는가'가 계정 단위로
+# 드러나야 한다. 그런데 계정명 표시가 회사마다 제각각이라 표준계정코드만 보면
+# 새는 것이 있다 — 유동화채무(두산퓨얼셀·두산에너빌리티), 판매후리스부채,
+# '차입부채'(우양에이치씨), '유동성차입금'(한선엔지니어링) 등.
+# 그래서 표준계정코드와 계정명 두 가지로 함께 판정한다(둘 중 하나만 맞아도 포함).
+#
+#   포함어 : 차입 · 사채 · 리스부채 · 유동성장기부채 · 장기부채 · 유동화채무
+#   제외어 : 채권 · 대여 · 자산 · 미지급 · 보증금 · 할인발행차금 · 상환할증금 · 파생
+#
+# 제외어를 두는 까닭 — '차입·사채'가 들어가도 자산인 계정(대여금)이나,
+# 부채이되 이자를 물지 않는 계정(임대보증금·미지급금·파생상품평가부채)이
+# 섞이면 순차입금이 부풀려진다. 사채할인발행차금·상환할증금은 사채의
+# 차감·부가 계정이라 따로 더하면 이중계상된다.
+#
+# ★ 계정명만으로는 가릴 수 없는 것도 있다.
+#   회생담보채무처럼 '기타금융부채'로 묶여 표시되면서 실질은 이자부인 계정은
+#   주석을 봐야 알 수 있어 자동으로는 잡히지 않는다. 그런 경우는 직접 입력
+#   (ManualInputDialog)으로 총액을 덮어쓴다.
+DEBT_NAME_INCLUDE = ("차입", "사채", "리스부채", "유동성장기부채", "장기부채", "유동화채무")
+DEBT_NAME_EXCLUDE = ("채권", "대여", "자산", "미지급", "보증금",
+                     "할인발행차금", "상환할증금", "파생")
+
+
+def is_interest_bearing(account_name):
+    """계정명이 이자부부채로 볼 만한 것인지. 공백은 미리 지워 들어온다."""
+    if not account_name:
+        return False
+    if any(word in account_name for word in DEBT_NAME_EXCLUDE):
+        return False
+    return any(word in account_name for word in DEBT_NAME_INCLUDE)
+
+
 SUM_SPECS = {
     "dep_amort": {
         "label": "감가상각비·무형자산상각비",
@@ -150,25 +185,49 @@ SUM_SPECS = {
               r"사용권자산상각비|감가상각비와무형자산상각비)(에대한조정)?$",
     },
     "total_debt": {
-        "label": "총차입금",
+        "label": "이자부부채",
         "sj": ["BS"],
         "ids": [
             "ifrs-full_ShorttermBorrowings",
             "ifrs-full_CurrentBorrowingsAndCurrentPortionOfNoncurrentBorrowings",
             "ifrs-full_ShorttermBorrowingsAndCurrentPortionOfLongtermBorrowings",
+            "ifrs-full_CurrentLoansReceivedAndCurrentPortionOfNoncurrentLoansReceived",
             "ifrs-full_CurrentPortionOfLongtermBorrowings",
             "ifrs-full_LongtermBorrowings",
+            "dart_LongTermBorrowingsGross",
             "ifrs-full_NoncurrentPortionOfNoncurrentLoansReceived",
+            "ifrs-full_NoncurrentPortionOfNoncurrentSecuredBankLoansReceived",
+            "ifrs-full_NoncurrentPortionOfOtherNoncurrentBorrowings",
             "ifrs-full_BondsIssued",
             "ifrs-full_NoncurrentPortionOfNoncurrentBondsIssued",
             "ifrs-full_CurrentPortionOfNoncurrentBondsIssued",
+            "dart_CurrentPortionOfBonds",
+            "dart_ConvertibleBonds",
+            "dart_CurrentPortionOfConvertibleBonds",
+            "dart_CurrentPortionOfExchangeableBond",
             "ifrs-full_CurrentLeaseLiabilities",
             "ifrs-full_NoncurrentLeaseLiabilities",
         ],
-        # 표준계정코드를 쓰지 않는 회사(삼성전자 단기차입금 등) 대비.
-        # '차입금의차입' 같은 현금흐름표 항목이 섞이지 않도록 완전일치로 본다.
-        "nm": r"^(단기차입금|장기차입금|차입금|유동성장기차입금|유동성장기부채|"
-              r"사채|전환사채|신주인수권부사채|유동성사채|리스부채|유동리스부채|비유동리스부채)$",
+        # 표준계정코드를 쓰지 않는 회사(미코·비나텍의 차입금 계정 등)와,
+        # 표준코드는 있으나 위 목록에 없는 계정을 계정명으로 함께 잡는다.
+        # 판정은 is_interest_bearing() — 포함어/제외어는 위쪽 주석 참조.
+        "match": is_interest_bearing,
+    },
+    "st_investments": {
+        "label": "단기금융상품",
+        "sj": ["BS"],
+        # 정기예금 등 '현금성자산으로 분류되지 않는 단기예치금' 표준계정.
+        # 이 코드를 쓰면 회사가 어떤 이름으로 표시하든(단기금융상품·단기금융자산·
+        # 기타유동단기금융상품·단기기타금융자산) 같은 성격이다.
+        "ids": [
+            "ifrs-full_ShorttermDepositsNotClassifiedAsCashEquivalents",
+            "dart_ShortTermDepositsNotClassifiedAsCashEquivalents",
+        ],
+        # ★ '기타유동금융자산(ifrs-full_OtherCurrentFinancialAssets)'은 넣지 않는다.
+        #   매출채권 외 미수금·보증금이 섞여 있어 현금성으로 볼 수 없다.
+        #   장기금융상품(dart_LongTermDeposits...)도 1년 내 현금화가 아니라 제외한다.
+        "nm": r"^(단기금융상품|단기금융자산|기타유동단기금융상품|단기예금|"
+              r"단기투자자산|유동성정기예금)$",
     },
 }
 
@@ -200,7 +259,7 @@ AMOUNT_KEYS = ["revenue", "operating_income", "net_income", "ebitda", "assets", 
 # 자동으로 못 잡는 경우가 있어 사업보고서 주석을 보고 채워 넣는다.
 MANUAL_KEYS = {
     "dep_amort": "감가상각비·무형자산상각비",
-    "total_debt": "총차입금(리스부채 포함)",
+    "total_debt": "이자부부채(차입금·사채·리스부채)",
 }
 
 # EDGAR(SEC)는 차입금을 태그별로 따로 주므로 더해서 총차입금을 만든다.
@@ -261,7 +320,8 @@ def extract_items(rows):
     # 리포트에서 근거를 확인할 수 있게 한다(계정 표시가 회사마다 달라 검증이 필요하다).
     detail = {}
     for key, spec in SUM_SPECS.items():
-        pattern = re.compile(spec["nm"])
+        pattern = re.compile(spec["nm"]) if spec.get("nm") else None
+        match_fn = spec.get("match")
         total, seen, lines = 0.0, set(), []
 
         for row in rows:
@@ -275,7 +335,10 @@ def extract_items(rows):
             acc_nm = re.sub(r"\s+", "", row.get("account_nm") or "")
             standard = acc_id and acc_id != "-표준계정코드 미사용-"
 
-            if standard:
+            if match_fn:
+                # 계정코드·계정명 어느 쪽으로든 잡는다(이자부부채)
+                hit = (standard and acc_id in spec["ids"]) or match_fn(acc_nm)
+            elif standard:
                 hit = acc_id in spec["ids"]
             else:
                 hit = bool(pattern.match(acc_nm))
@@ -320,6 +383,13 @@ def extract_items(rows):
                 break
 
         items[key] = value
+
+    # 현금및현금성자산도 산정내역에 한 줄로 실어 세 분류(이자부부채·현금및현금성
+    # 자산·단기금융상품)를 한 표에서 대조할 수 있게 한다. items["_detail"] 과
+    # 같은 dict 이므로 여기서 넣으면 그대로 따라간다.
+    if items.get("cash") is not None:
+        detail["cash"] = [{"name": ITEM_SPECS["cash"]["label"],
+                           "amount": items["cash"], "id": ""}]
 
     return items
 
@@ -428,11 +498,14 @@ def derive_ebitda_and_debt(items, override=None, note=None):
     EBITDA와 순차입금을 만든다. 사용자가 넣은 값(override)이 있으면 그쪽을 우선한다.
 
       EBITDA = 영업이익 + 감가상각비·무형자산상각비
-      순차입금 = 총차입금(리스부채 포함) − 현금및현금성자산
+      순차입금 = 이자부부채(차입금·사채·리스부채) − 현금및현금성자산 − 단기금융상품
 
-    ★ 순차입금에서 단기금융상품(정기예금 등)은 빼지 않는다.
-      회사마다 유동성 분류가 달라 자동으로 가려내면 오히려 들쭉날쭉해지므로,
-      '현금및현금성자산'이라는 한 가지 기준으로 통일했다. 이 점은 리포트 각주에 밝힌다.
+    ★ 단기금융상품(정기예금 등)도 차감한다 — valuation 실무의 순차입금 정의다.
+      회사가 어떤 이름으로 표시하든 '현금성자산으로 분류되지 않는 단기예치금'
+      표준계정(ifrs-full_ShorttermDepositsNotClassifiedAsCashEquivalents)만
+      집계하므로, 매출채권·보증금이 섞인 '기타유동금융자산'은 들어오지 않는다.
+      무엇이 들어갔는지는 리포트의 「이자부부채·현금성자산 산정내역」에서 계정
+      단위로 확인할 수 있다.
     """
     # ① 공시원문 주석에서 자동으로 읽어 온 값 (note_reader)
     from_note = set()
@@ -466,9 +539,18 @@ def derive_ebitda_and_debt(items, override=None, note=None):
             detail["total_debt"] = [{"name": label, "amount": value, "id": ""}
                                     for label, value in found]
 
+    # 산정내역 표에 실을 줄 — DART는 extract_items 에서 이미 계정별로 담았고,
+    # EDGAR는 태그 하나로 오므로 여기서 한 줄짜리 내역을 만들어 둔다.
+    detail = items.setdefault("_detail", {})
+    for key, label in (("cash", "현금및현금성자산"), ("st_investments", "단기금융상품")):
+        if key not in detail and items.get(key) is not None:
+            detail[key] = [{"name": label, "amount": items[key], "id": ""}]
+
     debt = items.get("total_debt")
     cash = items.get("cash")
-    items["net_debt"] = None if debt is None else debt - (cash or 0.0)
+    deposits = items.get("st_investments")
+    items["net_debt"] = (None if debt is None
+                         else debt - (cash or 0.0) - (deposits or 0.0))
 
     items["_manual"] = sorted(manual)
     items["_from_note"] = sorted(from_note)

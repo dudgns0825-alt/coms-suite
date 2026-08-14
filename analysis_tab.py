@@ -453,7 +453,7 @@ class AnalysisTab(ttk.Frame):
     # 원문에서 찾아 볼 항목 — (키, 이름, NoteReader 메서드 이름)
     NOTE_LOOKUPS = (
         ("dep_amort", "감가상각비", "dep_amort"),
-        ("total_debt", "총차입금", "total_debt"),
+        ("total_debt", "이자부부채", "total_debt"),
     )
 
     def _fill_from_notes(self, cache_dir):
@@ -657,7 +657,8 @@ class ManualInputDialog(tk.Toplevel):
     비워 두면 그 회사의 EBITDA·EV 지표만 비고 나머지는 그대로 나온다.
     """
 
-    LABELS = {"dep_amort": "감가상각비·무형자산상각비", "total_debt": "총차입금(리스부채 포함)"}
+    LABELS = {"dep_amort": "감가상각비·무형자산상각비",
+              "total_debt": "이자부부채(차입금·사채·리스부채)"}
 
     def __init__(self, parent, gaps):
         super().__init__(parent)

@@ -190,6 +190,14 @@ tbody tr.co-head td .origin { font-weight: 400; color: var(--text-muted);
   font-size: 11.5px; margin-left: 8px; }
 td.neg { color: var(--bad); }
 td.na { color: var(--text-muted); }
+/* ── 산정내역 표 — 분류 머리 / 계정과목 / 합계 ── */
+tbody tr.grp td { color: var(--text-secondary); font-weight: 600; font-size: 12px;
+  padding-top: 8px; border-bottom: 0; }
+tbody td.acct { padding-left: 26px; color: var(--text-secondary); font-weight: 400; }
+tbody tr.sub td { font-weight: 600; border-bottom: 1px solid var(--axis); }
+tbody tr.sub.net td { background: var(--page); }
+tbody tr.sub td .origin { font-weight: 400; color: var(--text-muted);
+  font-size: 11.5px; margin-left: 8px; }
 /* 사용자가 주석을 보고 직접 넣은 값 표시 */
 td .manual { color: var(--text-muted); font-size: 10px; margin-left: 3px; vertical-align: 2px; }
 
@@ -230,6 +238,9 @@ footer .src { color: var(--text-muted); }
 
   <h2 class="section-title">재무수치 표 <span style="font-weight:400;color:var(--text-muted);font-size:13px">(단위: 억원, 비율 %)</span></h2>
   <div class="tablewrap" id="table"></div>
+
+  <h2 class="section-title">이자부부채·현금성자산 산정내역 <span style="font-weight:400;color:var(--text-muted);font-size:13px">(계정과목별, 단위: 억원)</span></h2>
+  <div class="tablewrap" id="detail"></div>
 
   <footer>
     <div><b>출처 및 작성기준</b></div>
@@ -588,6 +599,7 @@ document.getElementById("doc-title").textContent = DATA.title;
 document.getElementById("doc-sub").innerHTML = DATA.subtitle;
 document.getElementById("kpis").innerHTML = DATA.kpi_html;
 document.getElementById("table").innerHTML = DATA.table_html;
+document.getElementById("detail").innerHTML = DATA.detail_html || "";
 document.getElementById("notes").innerHTML = DATA.notes_html;
 
 redraw();
